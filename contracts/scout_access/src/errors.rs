@@ -192,13 +192,40 @@ mod tests {
                 in_error_enum = true;
                 continue;
             }
-
             if !in_error_enum {
                 continue;
             }
-
             if line.starts_with('}') {
                 break;
             }
+            if line.is_empty() || line.starts_with("//") {
+                continue;
+            }
 
-            if l
+            let (name, explicit) = match line.split_once('=') {
+                Some((name, code)) => {
+                    let code = code
+                        .trim()
+                        .trim_end_matches(',')
+                        .trim()
+                        .parse::<u32>()
+                        .expect("explicit error code must be a u32");
+                    (name.trim(), Some(code))
+                }
+                None => (line.trim_end_matches(',').trim(), None),
+            };
+
+            let code = match explicit {
+                Some(code) => code,
+                None => next_implicit_code.expect("implicit code requires a prior explicit code"),
+            };
+
+            assert_ne!(code, 13, "error code 13 must remain reserved ({name})");
+            assert_ne!(code, 18, "error code 18 must remain reserved ({name})");
+
+            next_implicit_code = Some(code + 1);
+        }
+
+        assert!(in_error_enum, "failed to locate ScoutAccessError enum");
+    }
+}
